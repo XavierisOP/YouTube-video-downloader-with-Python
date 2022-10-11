@@ -1,4 +1,4 @@
-## **Python script to download YouTube videos From Playlist, Channel, Bulk, Single, Recently Uploaded etc**
+## **Python script for YouTube videos download From Playlist, Channel, Bulk, Single, Recently Uploaded etc**
 Python script to downlaod YouTube videos From Playlist, Channel, Bulk, Single, Recently Uploaded etc
 <p align="center">
 <a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Lobster&size=23&duration=1000&pause=1000&color=19F2FF&background=FFFFFF00&center=true&vCenter=true&width=250&lines=YouTube+Videos;Downloader;Bulk+and+Single+Videos;From+PlayList+or+a+Channel" alt="Typing SVG" /></a>
