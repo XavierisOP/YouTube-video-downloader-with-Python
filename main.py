@@ -1,5 +1,5 @@
 import pytube
-from pytube import YouTube, Playlist, Channel, exceptions
+from pytube import YouTube, Playlist, Channel
 from pytube.cli import on_progress
 
 fuchsia = '\033[38;2;255;00;255m'
