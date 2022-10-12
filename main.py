@@ -1,11 +1,6 @@
 import pytube
-from pytube import Channel
-from pytube import YouTube
-from pytube import exceptions
-from pytube import Playlist
+from pytube import YouTube, Playlist, Channel, exceptions
 from pytube.cli import on_progress
-# channel_link = "https://www.youtube.com/channel/UCnQucpXURwXBgeAmwn3QF2g"
-# channel = 'https://www.youtube.com/c/KaanPhodMusic/videos'
 
 fuchsia = '\033[38;2;255;00;255m'
 # color as hex #FF00FF
