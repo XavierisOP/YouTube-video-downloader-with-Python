@@ -13,11 +13,11 @@ Python script to downlaod YouTube videos From Playlist, Channel, Bulk, Single, R
 
 # Features😶‍🌫️
 
-    1. Interactive with Menu Options
-    2. Bulk & Single Download
-    3. From a Specific Channel Videos
-    4. From any PlayList
-    5. Recent Videos
+    1. Interactive with Menu Options.
+    2. Bulk & Single Download.
+    3. From a Specific Channel Videos.
+    4. From any PlayList.
+    5. Recent Videos.
 
 ### Dependancies: 
    [pytube](https://github.com/pytube/pytube)
