@@ -1,8 +1,12 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pytube import YouTube, Playlist, Channel
-from pytube.exceptions import VideoUnavailable
+from pytube.exceptions import VideoUnavailable, RegexMatchError
 import threading
+
+# Create a shared variable to control download threads
+stop_download = False
+download_thread = None
 
 # Function to browse and select a directory
 def select_directory():
@@ -11,6 +15,11 @@ def select_directory():
 
 # Function to download a single video
 def download_single_video():
+    global download_thread, stop_download
+    if download_thread and download_thread.is_alive():
+        messagebox.showinfo("Info", "Download is already in progress.")
+        return
+
     url = single_video_var.get()
     directory = directory_var.get()
 
@@ -30,12 +39,20 @@ def download_single_video():
         except (VideoUnavailable, Exception):
             messagebox.showerror("Error", 'Video is not accessible')
 
+    # Reset the stop_download variable
+    stop_download = False
+
     # Run the download in a separate thread
-    thread = threading.Thread(target=download_single_video_thread)
-    thread.start()
+    download_thread = threading.Thread(target=download_single_video_thread)
+    download_thread.start()
 
 # Function to download from a playlist
 def download_playlist():
+    global download_thread, stop_download
+    if download_thread and download_thread.is_alive():
+        messagebox.showinfo("Info", "Download is already in progress.")
+        return
+
     playlist_url = playlist_var.get()
     directory = directory_var.get()
 
@@ -43,27 +60,38 @@ def download_playlist():
         file_size = stream.filesize
         bytes_downloaded = file_size - bytes_remaining
         progress = (bytes_downloaded / file_size) * 100
-        download_progress_var.set(progress)
+        playlist_progress_var.set(progress)
 
     def download_playlist_thread():
         playlist = Playlist(playlist_url)
         total_videos = len(playlist.video_urls)
         for i, video in enumerate(playlist.videos, start=1):
+            if stop_download:
+                break
+
             try:
                 video.register_on_progress_callback(update_progress_bar)
                 messagebox.showinfo("Info", f'Downloading Video {i}/{total_videos}: {video.title}')
                 video.streams.get_highest_resolution().download(directory)
-                download_progress_var.set((i / total_videos) * 100)
+                playlist_progress_var.set((i / total_videos) * 100)
                 messagebox.showinfo("Info", f'Video {video.title} Downloaded')
             except VideoUnavailable:
-                messagebox.showerror("Error", f'Video {video.title} is unavailable, skipping.')
+                messagebox.showerror("Error", f'Video {video.title} is unavailable.')
+
+    # Reset the stop_download variable
+    stop_download = False
 
     # Run the download in a separate thread
-    thread = threading.Thread(target=download_playlist_thread)
-    thread.start()
+    download_thread = threading.Thread(target=download_playlist_thread)
+    download_thread.start()
 
 # Function to download from a channel
 def download_channel():
+    global download_thread, stop_download
+    if download_thread and download_thread.is_alive():
+        messagebox.showinfo("Info", "Download is already in progress.")
+        return
+
     channel_link = channel_var.get()
     directory = directory_var.get()
 
@@ -71,24 +99,33 @@ def download_channel():
         file_size = stream.filesize
         bytes_downloaded = file_size - bytes_remaining
         progress = (bytes_downloaded / file_size) * 100
-        download_progress_var.set(progress)
+        channel_progress_var.set(progress)
 
     def download_channel_thread():
-        channel = Channel(channel_link)
-        total_videos = len(channel.video_urls)
-        for i, video in enumerate(channel.videos, start=1):
-            try:
-                video.register_on_progress_callback(update_progress_bar)
-                messagebox.showinfo("Info", f'Downloading Video {i}/{total_videos}: {video.title}')
-                video.streams.get_highest_resolution().download(directory)
-                download_progress_var.set((i / total_videos) * 100)
-                messagebox.showinfo("Info", f'Video {video.title} Downloaded')
-            except VideoUnavailable:
-                messagebox.showerror("Error", f'Video {video.title} is unavailable, skipping.')
+        try:
+            channel = Channel(channel_link)
+            total_videos = len(channel.video_urls)
+            for i, video in enumerate(channel.videos, start=1):
+                if stop_download:
+                    break
+
+                try:
+                    video.register_on_progress_callback(update_progress_bar)
+                    messagebox.showinfo("Info", f'Downloading Video {i}/{total_videos}: {video.title}')
+                    video.streams.get_highest_resolution().download(directory)
+                    channel_progress_var.set((i / total_videos) * 100)
+                    messagebox.showinfo("Info", f'Video {video.title} Downloaded')
+                except VideoUnavailable:
+                    messagebox.showerror("Error", f'Video {video.title} is unavailable.')
+        except RegexMatchError:
+            messagebox.showerror("Error", 'Invalid Channel URL.')
+
+    # Reset the stop_download variable
+    stop_download = False
 
     # Run the download in a separate thread
-    thread = threading.Thread(target=download_channel_thread)
-    thread.start()
+    download_thread = threading.Thread(target=download_channel_thread)
+    download_thread.start()
 
 # Create the main window
 root = tk.Tk()
@@ -142,12 +179,12 @@ single_video_entry.grid(row=0, column=1)
 single_video_button = ttk.Button(single_video_tab, text="Download", command=download_single_video)
 single_video_button.grid(row=0, column=2)
 
-# Create a progress bar for all downloading tasks
+# Create a progress bar for Single Video Tab
 download_progress_var = tk.DoubleVar()
 download_progress_var.set(0)
 
-download_progress_bar = ttk.Progressbar(single_video_tab, variable=download_progress_var, length=100)
-download_progress_bar.grid(row=1, column=0, columnspan=3)
+single_video_progress_bar = ttk.Progressbar(single_video_tab, variable=download_progress_var, length=100)
+single_video_progress_bar.grid(row=1, column=0, columnspan=3)
 
 # ----------------------------------------
 # Playlist Tab
@@ -164,27 +201,16 @@ playlist_label.grid(row=0, column=0)
 playlist_entry = ttk.Entry(playlist_tab, textvariable=playlist_var, width=50)
 playlist_entry.grid(row=0, column=1)
 
-# Create a label for the playlist menu
-playlist_menu_label = ttk.Label(playlist_tab, text="Select an option:")
-playlist_menu_label.grid(row=1, column=0)
-
-# Create a menu for selecting options (all videos or recent)
-playlist_menu_var = tk.IntVar()
-playlist_menu = ttk.Combobox(playlist_tab, textvariable=playlist_menu_var, values=["Download all videos", "Download recent videos"])
-playlist_menu.grid(row=1, column=1)
-playlist_menu.set("Download all videos")
-
-# Create an entry field for selecting the number of recent videos
-recent_choice_label = ttk.Label(playlist_tab, text="Number of recent videos:")
-recent_choice_label.grid(row=2, column=0)
-
-recent_choice_var = tk.StringVar()
-recent_choice_entry = ttk.Entry(playlist_tab, textvariable=recent_choice_var)
-recent_choice_entry.grid(row=2, column=1)
-
 # Create a button to download from a playlist
 playlist_button = ttk.Button(playlist_tab, text="Download", command=download_playlist)
-playlist_button.grid(row=3, column=0, columnspan=2)
+playlist_button.grid(row=1, column=0, columnspan=2)
+
+# Create a progress bar for Playlist Tab
+playlist_progress_var = tk.DoubleVar()
+playlist_progress_var.set(0)
+
+playlist_progress_bar = ttk.Progressbar(playlist_tab, variable=playlist_progress_var, length=100)
+playlist_progress_bar.grid(row=2, column=0, columnspan=2)
 
 # ----------------------------------------
 # Channel Tab
@@ -201,26 +227,19 @@ channel_label.grid(row=0, column=0)
 channel_entry = ttk.Entry(channel_tab, textvariable=channel_var, width=50)
 channel_entry.grid(row=0, column=1)
 
-# Create a label for the channel menu
-channel_menu_label = ttk.Label(channel_tab, text="Select an option:")
-channel_menu_label.grid(row=1, column=0)
-
-# Create a menu for selecting options (all videos or recent)
-channel_menu_var = tk.IntVar()
-channel_menu = ttk.Combobox(channel_tab, textvariable=channel_menu_var, values=["Download all videos", "Download recent videos"])
-channel_menu.grid(row=1, column=1)
-channel_menu.set("Download all videos")
-
-# Create an entry field for selecting the number of recent videos
-channel_recent_choice_label = ttk.Label(channel_tab, text="Number of recent videos:")
-channel_recent_choice_label.grid(row=2, column=0)
-
-channel_recent_choice_var = tk.StringVar()
-channel_recent_choice_entry = ttk.Entry(channel_tab, textvariable=channel_recent_choice_var)
-channel_recent_choice_entry.grid(row=2, column=1)
-
 # Create a button to download from a channel
 channel_button = ttk.Button(channel_tab, text="Download", command=download_channel)
-channel_button.grid(row=3, column=0, columnspan=2)
+channel_button.grid(row=1, column=0, columnspan=2)
+
+# Create a progress bar for Channel Tab
+channel_progress_var = tk.DoubleVar()
+channel_progress_var.set(0)
+
+channel_progress_bar = ttk.Progressbar(channel_tab, variable=channel_progress_var, length=100)
+channel_progress_bar.grid(row=2, column=0, columnspan=2)
+
+# Create a label for "Xavier" at the bottom right
+xavier_label = ttk.Label(root, text="Channel Feature will update soon.. - Xavier ")
+xavier_label.grid(row=4, column=2, sticky="se")  # Use the sticky option to place it at the bottom right
 
 root.mainloop()
