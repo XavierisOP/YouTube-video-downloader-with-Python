@@ -1,15 +1,8 @@
-import os
-
-# Check if the "install_dependencies.py" script exists
-if os.path.exists("install_dependencies.py"):
-    # Execute the script to install dependencies
-    os.system("python install_dependencies.py")
-
-
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pytube import YouTube, Playlist, Channel
 from pytube.exceptions import VideoUnavailable
+import threading
 
 # Function to browse and select a directory
 def select_directory():
@@ -26,82 +19,76 @@ def download_single_video():
         bytes_downloaded = file_size - bytes_remaining
         progress = (bytes_downloaded / file_size) * 100
         download_progress_var.set(progress)
-    
-    try:
-        yt = YouTube(url, on_progress_callback=update_progress_bar)
-        messagebox.showinfo("Info", f'{yt.title} Video Downloading...')
-        yt.streams.get_highest_resolution().download(directory)
-        download_progress_var.set(100)  # Set progress to 100% when download is complete
-        messagebox.showinfo("Info", 'Video Downloaded...')
-    except (VideoUnavailable, Exception):
-        messagebox.showerror("Error", 'Video is not accessible')
+
+    def download_single_video_thread():
+        try:
+            yt = YouTube(url, on_progress_callback=update_progress_bar)
+            messagebox.showinfo("Info", f'{yt.title} Video Downloading...')
+            yt.streams.get_highest_resolution().download(directory)
+            download_progress_var.set(0)  # Reset progress bar
+            messagebox.showinfo("Info", 'Video Downloaded...')
+        except (VideoUnavailable, Exception):
+            messagebox.showerror("Error", 'Video is not accessible')
+
+    # Run the download in a separate thread
+    thread = threading.Thread(target=download_single_video_thread)
+    thread.start()
 
 # Function to download from a playlist
 def download_playlist():
     playlist_url = playlist_var.get()
     directory = directory_var.get()
-    
-    playlist = Playlist(playlist_url)
-    total_videos = len(playlist.video_urls)
-    
-    pMenu = playlist_menu_var.get()
-    
-    if pMenu == 1:
-        for video in playlist.videos:
+
+    def update_progress_bar(stream, chunk, bytes_remaining):
+        file_size = stream.filesize
+        bytes_downloaded = file_size - bytes_remaining
+        progress = (bytes_downloaded / file_size) * 100
+        download_progress_var.set(progress)
+
+    def download_playlist_thread():
+        playlist = Playlist(playlist_url)
+        total_videos = len(playlist.video_urls)
+        for i, video in enumerate(playlist.videos, start=1):
             try:
-                video.register_on_progress_callback(on_progress)
-                messagebox.showinfo("Info", f'{video.title} Video Downloading...')
+                video.register_on_progress_callback(update_progress_bar)
+                messagebox.showinfo("Info", f'Downloading Video {i}/{total_videos}: {video.title}')
                 video.streams.get_highest_resolution().download(directory)
-                messagebox.showinfo("Info", f'{video.title} Video Downloaded')
+                download_progress_var.set((i / total_videos) * 100)
+                messagebox.showinfo("Info", f'Video {video.title} Downloaded')
             except VideoUnavailable:
-                messagebox.showerror("Error", f'{video.title} is unavailable, skipping.')
-    elif pMenu == 2:
-        nChoice = int(recent_choice_var.get())
-        for video in playlist.videos[:nChoice]:
-            try:
-                video.register_on_progress_callback(on_progress)
-                messagebox.showinfo("Info", f'{video.title} Video Downloading...')
-                video.streams.get_highest_resolution().download(directory)
-                messagebox.showinfo("Info", f'{video.title} Video Downloaded')
-            except VideoUnavailable:
-                messagebox.showerror("Error", f'{video.title} is unavailable, skipping.')
+                messagebox.showerror("Error", f'Video {video.title} is unavailable, skipping.')
+
+    # Run the download in a separate thread
+    thread = threading.Thread(target=download_playlist_thread)
+    thread.start()
 
 # Function to download from a channel
 def download_channel():
     channel_link = channel_var.get()
     directory = directory_var.get()
-    
-    channel = Channel(channel_link)
-    total_videos = len(channel.video_urls)
-    
-    choise = channel_menu_var.get()
-    
-    if choise == 1:
-        for video in channel.videos:
-            try:
-                video.register_on_progress_callback(on_progress)
-                messagebox.showinfo("Info", f'{video.title} Video Downloading...')
-                video.streams.get_highest_resolution().download(directory)
-                messagebox.showinfo("Info", f'{video.title} Video Downloaded')
-            except VideoUnavailable:
-                messagebox.showerror("Error", f'{video.title} is unavailable, skipping.')
-    elif choise == 2:
-        recentChoice = int(channel_recent_choice_var.get())
-        for video in channel.videos[:recentChoice]:
-            try:
-                video.register_on_progress_callback(on_progress)
-                messagebox.showinfo("Info", f'{video.title} Video Downloading...')
-                video.streams.get_highest_resolution().download(directory)
-                messagebox.showinfo("Info", f'{video.title} Video Downloaded')
-            except VideoUnavailable:
-                messagebox.showerror("Error", f'{video.title} is unavailable, skipping.')
 
-# Function to update the progress bar
-def on_progress(stream, chunk, bytes_remaining):
-    file_size = stream.filesize
-    bytes_downloaded = file_size - bytes_remaining
-    progress = (bytes_downloaded / file_size) * 100
-    download_progress_var.set(progress)
+    def update_progress_bar(stream, chunk, bytes_remaining):
+        file_size = stream.filesize
+        bytes_downloaded = file_size - bytes_remaining
+        progress = (bytes_downloaded / file_size) * 100
+        download_progress_var.set(progress)
+
+    def download_channel_thread():
+        channel = Channel(channel_link)
+        total_videos = len(channel.video_urls)
+        for i, video in enumerate(channel.videos, start=1):
+            try:
+                video.register_on_progress_callback(update_progress_bar)
+                messagebox.showinfo("Info", f'Downloading Video {i}/{total_videos}: {video.title}')
+                video.streams.get_highest_resolution().download(directory)
+                download_progress_var.set((i / total_videos) * 100)
+                messagebox.showinfo("Info", f'Video {video.title} Downloaded')
+            except VideoUnavailable:
+                messagebox.showerror("Error", f'Video {video.title} is unavailable, skipping.')
+
+    # Run the download in a separate thread
+    thread = threading.Thread(target=download_channel_thread)
+    thread.start()
 
 # Create the main window
 root = tk.Tk()
@@ -155,12 +142,12 @@ single_video_entry.grid(row=0, column=1)
 single_video_button = ttk.Button(single_video_tab, text="Download", command=download_single_video)
 single_video_button.grid(row=0, column=2)
 
-# Create a progress bar for single video download
+# Create a progress bar for all downloading tasks
 download_progress_var = tk.DoubleVar()
 download_progress_var.set(0)
 
-download_progress_bar = ttk.Progressbar(single_video_tab, variable=download_progress_var, length=30)
-download_progress_bar.grid(row=0, column=3)
+download_progress_bar = ttk.Progressbar(single_video_tab, variable=download_progress_var, length=100)
+download_progress_bar.grid(row=1, column=0, columnspan=3)
 
 # ----------------------------------------
 # Playlist Tab
