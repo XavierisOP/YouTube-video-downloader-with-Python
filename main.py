@@ -239,7 +239,7 @@ channel_progress_bar = ttk.Progressbar(channel_tab, variable=channel_progress_va
 channel_progress_bar.grid(row=2, column=0, columnspan=2)
 
 # Create a label for "Xavier" at the bottom right
-xavier_label = ttk.Label(root, text="Channel Feature will update soon.. - Xavier ")
+xavier_label = ttk.Label(root, text="In Channel will update soon.. - Xavier  ")
 xavier_label.grid(row=4, column=2, sticky="se")  # Use the sticky option to place it at the bottom right
 
 root.mainloop()
